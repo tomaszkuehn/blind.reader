@@ -1,0 +1,33 @@
+# Build artifacts
+build/
+sdkconfig
+sdkconfig.old
+*.bin
+*.elf
+*.map
+
+# ESP-IDF
+managed_components/
+dependencies.lock
+
+# Python
+__pycache__/
+*.pyc
+
+# Android / Gradle
+app/.gradle/
+app/build/
+app/local.properties
+app/.idea/
+*.apk
+*.aab
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# IJFW tooling state
+.ijfw/
+ijfw/
