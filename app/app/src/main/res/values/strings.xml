@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Blind Reader</string>
+    <string name="open_file">Otwórz plik</string>
+    <string name="play">Odtwarzaj</string>
+    <string name="pause">Pauza</string>
+    <string name="restart">Start od początku</string>
+    <string name="prev_paragraph">Poprzednie zdanie</string>
+    <string name="next_paragraph">Następne zdanie</string>
+    <string name="next_page">Następna strona</string>
+    <string name="voice">Zmień lektora</string>
+    <string name="speed">Prędkość</string>
+    <string name="speed_down">Zmniejsz prędkość</string>
+    <string name="speed_up">Zwiększ prędkość</string>
+    <string name="volume">Głośność</string>
+    <string name="volume_down">Zmniejsz głośność</string>
+    <string name="volume_up">Zwiększ głośność</string>
+    <string name="status">Status</string>
+    <string name="no_file">Brak wybranego pliku</string>
+    <string name="notification_channel">Czytnik</string>
+    <string name="notification_title">Blind Reader</string>
+    <string name="notification_playing">Czytanie w toku</string>
+    <string name="notification_paused">Wstrzymano</string>
+    <string name="battery_low_title">Niski poziom baterii</string>
+    <string name="battery_low_text">Poziom baterii jest niski</string>
+</resources>
