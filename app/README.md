@@ -8,6 +8,9 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
 ## Funkcje
 
 - **Wybór pliku** — PDF (pdfbox-android), TXT, EPUB (własny parser ZIP+XHTML).
+  PDFBox wymaga inicjalizacji `PDFBoxResourceLoader.init(context)` przed
+  pierwszym użyciem (ładowanie zasobów, np. glyphlist) — zrobione w
+  `DocumentParser.initPdfbox()`.
 - **Preprocessing tekstu** — usuwa nagłówki, stopki, numery stron i zbędne
   białe znaki.
 - **Lektor (TTS)** — odtwarzanie, pauza, start od początku, poprzednie /

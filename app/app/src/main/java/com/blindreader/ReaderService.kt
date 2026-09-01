@@ -226,7 +226,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
                 sentences = splitSentences(TextPreprocessor.process(text))
                 currentIndex = prefs.getInt(KEY_PREFIX + currentUri, 0).coerceIn(0, sentences.size - 1)
                 runOnMain { if (isPlaying) playCurrent() }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Błąd wczytywania dokumentu", e)
                 runOnMain { speak("Nie udało się wczytać dokumentu") }
             }
