@@ -34,11 +34,20 @@ class MainActivity : AppCompatActivity() {
         startService(Intent(this, ReaderService::class.java))
 
         binding.btnOpenFile.setOnClickListener { confirmCommand("open", getString(R.string.open_file)) }
-        binding.btnPlay.setOnClickListener { confirmCommand("play", getString(R.string.play)) }
+        binding.btnPlay.setOnClickListener {
+            if (isSelectingFile) confirmCommand("file_play", getString(R.string.play))
+            else confirmCommand("play", getString(R.string.play))
+        }
         binding.btnPause.setOnClickListener { confirmCommand("pause", getString(R.string.pause)) }
         binding.btnRestart.setOnClickListener { confirmCommand("restart", getString(R.string.restart)) }
-        binding.btnPrev.setOnClickListener { confirmCommand("prev", getString(R.string.prev_paragraph)) }
-        binding.btnNext.setOnClickListener { confirmCommand("next", getString(R.string.next_paragraph)) }
+        binding.btnPrev.setOnClickListener {
+            if (isSelectingFile) confirmCommand("file_prev", getString(R.string.prev_file))
+            else confirmCommand("prev", getString(R.string.prev_paragraph))
+        }
+        binding.btnNext.setOnClickListener {
+            if (isSelectingFile) confirmCommand("file_next", getString(R.string.next_file))
+            else confirmCommand("next", getString(R.string.next_paragraph))
+        }
         binding.btnNextPage.setOnClickListener { confirmCommand("next_page", getString(R.string.next_page)) }
         binding.btnSpeedDown.setOnClickListener { confirmCommand("speed_down", getString(R.string.speed_down)) }
         binding.btnSpeedUp.setOnClickListener { confirmCommand("speed_up", getString(R.string.speed_up)) }
@@ -48,6 +57,13 @@ class MainActivity : AppCompatActivity() {
 
         ReaderService.onOpenFile = {
             enterFileSelection()
+        }
+        ReaderService.onFileCommand = { command ->
+            when (command) {
+                "file_next" -> nextFile()
+                "file_prev" -> prevFile()
+                "file_play" -> playSelectedFile()
+            }
         }
     }
 
@@ -126,29 +142,32 @@ class MainActivity : AppCompatActivity() {
         currentFileIndex = 0
     }
 
-    private fun announceCurrentFile() {
+    private fun announceCurrentFile(prefix: String? = null) {
         if (files.isEmpty()) return
         val name = files[currentFileIndex].nameWithoutExtension
         binding.txtStatus.text = "${currentFileIndex + 1}/${files.size}: $name"
-        ReaderService.instance?.speakText(name)
+        val text = if (prefix != null) "$prefix. $name" else name
+        ReaderService.instance?.speakText(text)
     }
 
     private fun nextFile() {
         if (files.isEmpty()) return
         currentFileIndex = (currentFileIndex + 1) % files.size
-        announceCurrentFile()
+        announceCurrentFile("Następny plik")
     }
 
     private fun prevFile() {
         if (files.isEmpty()) return
         currentFileIndex = (currentFileIndex - 1 + files.size) % files.size
-        announceCurrentFile()
+        announceCurrentFile("Poprzedni plik")
     }
 
     private fun playSelectedFile() {
         if (files.isEmpty()) return
         val file = files[currentFileIndex]
-        ReaderService.instance?.playFile(Uri.fromFile(file))
+        val service = ReaderService.instance
+        service?.setDocument(Uri.fromFile(file))
+        service?.speakText("Plik wczytany")
         isSelectingFile = false
         updateButtonStates()
     }
@@ -174,9 +193,15 @@ class MainActivity : AppCompatActivity() {
         if (service != null) {
             if (isSelectingFile) {
                 when (keyCode) {
-                    KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { nextFile(); return true }
-                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> { prevFile(); return true }
-                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { playSelectedFile(); return true }
+                    KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> {
+                        service.handleCommand("file_next", getString(R.string.next_file)); return true
+                    }
+                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> {
+                        service.handleCommand("file_prev", getString(R.string.prev_file)); return true
+                    }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                        service.handleCommand("file_play", getString(R.string.play)); return true
+                    }
                     KeyEvent.KEYCODE_BACK -> { isSelectingFile = false; updateButtonStates(); return true }
                 }
                 return true

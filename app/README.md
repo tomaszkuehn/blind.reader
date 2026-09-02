@@ -32,6 +32,55 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
 - **Powiadomienia o baterii** — komunikat głosowy i powiadomienie przy
   niskim poziomie baterii.
 
+## Mechanizm potwierdzania komend (wszystkie przyciski)
+
+Każdy przycisk działa w ten sam sposób, dwustopniowo:
+
+1. **Pierwsze naciśnięcie** — czytanie zostaje wstrzymane (jeśli trwa),
+   a lektor odtwarza **słowny opis funkcji** przycisku.
+2. **Ponowne naciśnięcie tego samego przycisku w ciągu 5 sekund** — funkcja
+   zostaje wykonana, a aplikacja odtwarza **dźwięk potwierdzenia** (ACK).
+3. **Naciśnięcie innego przycisku** — zaczyna od nowa: wstrzymuje czytanie
+   i odtwarza opis nowego przycisku.
+4. **Brak naciśnięcia przez 5 sekund** — aplikacja odtwarza **inny beep**
+   (upływ czasu), po czym wraca do czytania (jeśli było przerwane) lub czeka
+   na następną akcję.
+
+Dzięki temu użytkownik zawsze wie, co zrobi przycisk, zanim go wykona, i może
+obsługiwać aplikację w pełni bez użycia wzroku.
+
+## Sterowanie klawiaturą
+
+| Klawisz | Funkcja |
+|---|---|
+| Enter / D-pad center | Odtwarzaj / wznów |
+| Spacja | Pauza |
+| Strzałka w górę / dół | Poprzednie / następne zdanie |
+| PageDown | Następna strona |
+| Strzałka w lewo / prawo | Zmniejsz / zwiększ prędkość |
+| Głośność − / + | Zmniejsz / zwiększ głośność |
+| V | Zmień lektora |
+
+### Wybór pliku (tryb na głównym ekranie)
+
+Po wybraniu "Otwórz plik" główny ekran przechodzi w tryb wyboru pliku.
+Aktywne są tylko: poprzedni plik, następny plik i odtwarzaj. Działają one
+zgodnie z opisanym wyżej mechanizmem potwierdzania:
+
+- **Następny plik** — pierwsze naciśnięcie odtwarza "Następny plik",
+  ponowne w ciągu 5 s przechodzi do następnego pliku i odtwarza jego nazwę.
+- **Poprzedni plik** — analogicznie, przechodzi do poprzedniego pliku.
+- **Odtwarzaj** — pierwsze naciśnięcie odtwarza "Odtwarzaj", ponowne w ciągu
+  5 s wczytuje wybrany plik, odtwarza "Plik wczytany" i wraca do głównego menu
+  (czytanie zaczyna się od zapamiętanej pozycji).
+
+| Klawisz | Funkcja |
+|---|---|
+| Strzałka w dół / PageDown | Następny plik |
+| Strzałka w górę / PageUp | Poprzedni plik |
+| Enter / D-pad center | Wczytaj wybrany plik i wróć do menu |
+| Wstecz | Wyjście z trybu wyboru |
+
 ## Budowa (Android Studio)
 
 1. Otwórz katalog `app/` jako projekt.
@@ -58,27 +107,3 @@ app/
 │   └── TextPreprocessor.kt  # usuwanie nagłówków, stron itp.
 └── app/src/main/res/        # layout, zasoby, ikona
 ```
-
-## Sterowanie klawiaturą
-
-| Klawisz | Funkcja |
-|---|---|
-| Enter / D-pad center | Odtwarzaj / wznów |
-| Spacja | Pauza |
-| Strzałka w górę / dół | Poprzednie / następne zdanie |
-| PageDown | Następna strona |
-| Strzałka w lewo / prawo | Zmniejsz / zwiększ prędkość |
-| Głośność − / + | Zmniejsz / zwiększ głośność |
-| V | Zmień lektora |
-
-### Wybór pliku (tryb na głównym ekranie)
-
-Po wybraniu "Otwórz plik" główny ekran przechodzi w tryb wyboru pliku.
-Aktywne są tylko: poprzednie zdanie, następne zdanie i odtwarzaj.
-
-| Klawisz | Funkcja |
-|---|---|
-| Strzałka w dół / PageDown | Następny plik |
-| Strzałka w górę / PageUp | Poprzedni plik |
-| Enter / D-pad center | Wczytaj i odtwarzaj wybrany plik |
-| Wstecz | Wyjście z trybu wyboru |

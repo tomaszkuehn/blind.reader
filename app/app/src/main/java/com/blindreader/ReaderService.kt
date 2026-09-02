@@ -61,6 +61,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
 
         var instance: ReaderService? = null
         var onOpenFile: (() -> Unit)? = null
+        var onFileCommand: ((String) -> Unit)? = null
 
         fun play(context: Context, uri: Uri) {
             val i = Intent(context, ReaderService::class.java).setAction(ACTION_PLAY)
@@ -415,6 +416,9 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
                 nextVoice()
             }
             "open" -> onOpenFile?.invoke()
+            "file_next" -> onFileCommand?.invoke("file_next")
+            "file_prev" -> onFileCommand?.invoke("file_prev")
+            "file_play" -> onFileCommand?.invoke("file_play")
         }
     }
 
