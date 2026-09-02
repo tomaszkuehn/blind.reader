@@ -156,6 +156,18 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         loadDocument(uri)
     }
 
+    fun speakText(text: String) {
+        speak(text)
+    }
+
+    fun playFile(uri: Uri) {
+        currentUri = uri.toString()
+        pendingCommand = null
+        confirmHandler.removeCallbacks(confirmTimeout)
+        isPlaying = true
+        loadDocument(uri)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PLAY -> {

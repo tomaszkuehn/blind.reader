@@ -11,8 +11,12 @@ object DocumentParser {
 
     fun parse(context: Context, uri: Uri): String {
         val name = uri.lastPathSegment?.lowercase() ?: ""
-        val stream: InputStream = context.contentResolver.openInputStream(uri)
-            ?: throw IllegalArgumentException("Nie można otworzyć pliku")
+        val stream: InputStream = if (uri.scheme == "file") {
+            java.io.File(uri.path!!).inputStream()
+        } else {
+            context.contentResolver.openInputStream(uri)
+                ?: throw IllegalArgumentException("Nie można otworzyć pliku")
+        }
         return stream.use {
             when {
                 name.endsWith(".pdf") -> parsePdf(context, it)

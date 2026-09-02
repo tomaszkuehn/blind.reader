@@ -7,10 +7,13 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
 
 ## Funkcje
 
-- **Wybór pliku** — PDF (pdfbox-android), TXT, EPUB (własny parser ZIP+XHTML).
-  PDFBox wymaga inicjalizacji `PDFBoxResourceLoader.init(context)` przed
-  pierwszym użyciem (ładowanie zasobów, np. glyphlist) — zrobione w
-  `DocumentParser.initPdfbox()`.
+- **Wybór pliku** — aplikacja czyta z folderu `Documents/Reader` na
+  urządzeniu. Klawiszami strzałek przechodzi się między dostępnymi tytułami
+  (PDF, TXT, EPUB), lektor odczytuje nazwę pliku, a Enter/Odtwarzaj wczytuje
+  i odtwarza wybrany plik. Wymaga uprawnienia "All files access"
+  (MANAGE_EXTERNAL_STORAGE). PDFBox wymaga inicjalizacji
+  `PDFBoxResourceLoader.init(context)` przed pierwszym użyciem (ładowanie
+  zasobów, np. glyphlist) — zrobione w `DocumentParser.initPdfbox()`.
 - **Preprocessing tekstu** — usuwa nagłówki, stopki, numery stron i zbędne
   białe znaki.
 - **Lektor (TTS)** — odtwarzanie, pauza, start od początku, poprzednie /
@@ -48,6 +51,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`
 app/
 ├── app/src/main/java/com/blindreader/
 │   ├── MainActivity.kt      # UI, przyciski, obsługa klawiatury
+│   ├── FilePickerActivity.kt # wybór pliku z Documents/Reader
 │   ├── ReaderService.kt     # TTS, odtwarzanie, komendy, pozycje, bateria
 │   ├── DocumentParser.kt    # PDF / TXT / EPUB
 │   └── TextPreprocessor.kt  # usuwanie nagłówków, stron itp.
@@ -65,3 +69,12 @@ app/
 | Strzałka w lewo / prawo | Zmniejsz / zwiększ prędkość |
 | Głośność − / + | Zmniejsz / zwiększ głośność |
 | V | Zmień lektora |
+
+### Wybór pliku (FilePickerActivity)
+
+| Klawisz | Funkcja |
+|---|---|
+| Strzałka w dół / PageDown | Następny plik |
+| Strzałka w górę / PageUp | Poprzedni plik |
+| Enter / D-pad center | Wczytaj i odtwarzaj wybrany plik |
+| Wstecz | Powrót do głównego okna |
