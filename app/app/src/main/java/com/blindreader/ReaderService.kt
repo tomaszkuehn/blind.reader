@@ -318,7 +318,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         val result = mutableListOf<Segment>()
         val normal = 1.0f
         val fast = 1.3f
-        val pause = Segment(null, normal, 250L)
+        val pause = Segment(null, normal, 120L)
 
         var i = 0
         val n = text.length
@@ -344,6 +344,11 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
                 result.add(pause)
                 i = close + 1
             } else if (c == ':' && (i + 1 >= n || text[i + 1].isWhitespace())) {
+                sb.append(c)
+                flush()
+                result.add(pause)
+                i++
+            } else if (c == ',' && i + 1 < n && text[i + 1].isWhitespace()) {
                 sb.append(c)
                 flush()
                 result.add(pause)
