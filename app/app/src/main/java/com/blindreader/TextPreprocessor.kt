@@ -10,6 +10,12 @@ object TextPreprocessor {
         text = text.replace(Regex("(?m)^\\s*\\d{1,4}\\s*$"), "")
         text = text.replace(Regex("(?m)^\\s*(strona|page)\\s+\\d{1,4}\\s*$", RegexOption.IGNORE_CASE), "")
 
+        // Usuń odnośniki do przypisów (superscript) zaraz po słowie, np.
+        // "słowo1", "słowo[2]", "słowo*" — to nie część słowa, tylko odnośnik.
+        text = text.replace(Regex("(?<=\\p{L})\\d{1,2}(?=\\s|\\p{P}|$)"), "")
+        text = text.replace(Regex("(?<=\\p{L})\\[\\d{1,3}\\](?=\\s|\\p{P}|$)"), "")
+        text = text.replace(Regex("(?<=\\p{L})[*†‡§¶](?=\\s|\\p{P}|$)"), "")
+
         // Usuń nagłówki/stopki powtarzające się na każdej stronie (krótkie linie
         // powtarzające się wielokrotnie w całym dokumencie).
         text = removeRepeatedLines(text)

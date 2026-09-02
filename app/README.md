@@ -19,9 +19,16 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
 - **Preprocessing tekstu** — usuwa nagłówki, stopki, numery stron i zbędne
   białe znaki. Dla PDF headery/footery wykrywane są per strona: linia
   powtarzająca się na górze lub dole ≥60% stron jest uznawana za nagłówek/
-  stopkę i pomijana.
+  stopkę i pomijana. Usuwane są też odnośniki do przypisów (superscript)
+  zaraz po słowie, np. `słowo1`, `słowo[2]`, `słowo*` — to nie część słowa,
+  tylko odnośnik.
 - **Lektor (TTS)** — odtwarzanie, pauza, start od początku, poprzednie /
   następne zdanie, następna strona, prędkość, głośność.
+- **Naturalne czytanie** — po dwukropku lektor robi krótką pauzę; tekst
+  w nawiasach czyta szybciej, z pauzami przed i po nawiasie. Pauzy to
+  prawdziwe pauzy czasowe (bez wymawiania znaków), a szybsze czytanie
+  realizowane jest przez podział zdania na segmenty z różną prędkością —
+  bez tagów SSML, które niektóre silniki TTS czytałyby dosłownie.
 - **Numery stron zgodne z PDF** — PDF parsowany jest strona po stronie, więc
   po przeskoczeniu do następnej strony lektor odtwarza prawdziwy numer strony
   z dokumentu, a czytanie zaczyna się od początku kolejnej strony.

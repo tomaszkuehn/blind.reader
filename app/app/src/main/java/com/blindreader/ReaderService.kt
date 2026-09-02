@@ -213,8 +213,8 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
                 override fun onDone(utteranceId: String?) {
-                    if (utteranceId == "sentence") {
-                        runOnMain { onSentenceDone() }
+                    if (utteranceId == "segment") {
+                        runOnMain { onSegmentDone() }
                     } else if (utteranceId == "feedback") {
                         runOnMain { onFeedbackDone() }
                     }
@@ -272,8 +272,9 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         if (!ttsReady) return
         val page = pageOfSentence.getOrElse(currentIndex) { currentIndex / PAGE_SIZE + 1 }
         isPlaying = true
-        tts.speak("Strona $page", TextToSpeech.QUEUE_ADD, null, "page")
-        tts.speak(sentences[currentIndex], TextToSpeech.QUEUE_ADD, null, "sentence")
+        segments = mutableListOf(Segment("Strona $page", 1.0f)) + splitSegments(sentences[currentIndex])
+        segmentIndex = 0
+        playSegment()
         updateNotification()
     }
 
@@ -296,9 +297,90 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
             return
         }
         isPlaying = true
-        val text = sentences[currentIndex]
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "sentence")
+        segments = splitSegments(sentences[currentIndex])
+        segmentIndex = 0
+        playSegment()
         updateNotification()
+    }
+
+    private data class Segment(val text: String?, val rate: Float, val pauseMs: Long = 0L)
+
+    private var segments: List<Segment> = emptyList()
+    private var segmentIndex = 0
+
+    /**
+     * Dzieli zdanie na segmenty:
+     * - tekst w nawiasach czyta szybciej, z pauzami przed i po,
+     * - po dwukropku dodaje krótką pauzę.
+     * Pauzy to segmenty bez tekstu (text == null) odtwarzane z opóźnieniem.
+     */
+    private fun splitSegments(text: String): List<Segment> {
+        val result = mutableListOf<Segment>()
+        val normal = 1.0f
+        val fast = 1.3f
+        val pause = Segment(null, normal, 250L)
+
+        var i = 0
+        val n = text.length
+        val sb = StringBuilder()
+        fun flush() {
+            if (sb.isNotEmpty()) {
+                result.add(Segment(sb.toString(), normal))
+                sb.clear()
+            }
+        }
+
+        while (i < n) {
+            val c = text[i]
+            if (c == '(') {
+                flush()
+                result.add(pause)
+                val close = text.indexOf(')', i)
+                if (close == -1) {
+                    sb.append(text.substring(i))
+                    break
+                }
+                result.add(Segment(text.substring(i + 1, close), fast))
+                result.add(pause)
+                i = close + 1
+            } else if (c == ':' && (i + 1 >= n || text[i + 1].isWhitespace())) {
+                sb.append(c)
+                flush()
+                result.add(pause)
+                i++
+            } else {
+                sb.append(c)
+                i++
+            }
+        }
+        flush()
+        return result
+    }
+
+    private fun playSegment() {
+        if (segmentIndex >= segments.size) {
+            onSentenceDone()
+            return
+        }
+        val seg = segments[segmentIndex]
+        if (seg.text == null) {
+            // Pauza czasowa — bez wymawiania.
+            segmentIndex++
+            confirmHandler.postDelayed({ if (isPlaying) playSegment() }, seg.pauseMs)
+            return
+        }
+        tts.setSpeechRate(speed * seg.rate)
+        tts.speak(seg.text, TextToSpeech.QUEUE_FLUSH, null, "segment")
+    }
+
+    private fun onSegmentDone() {
+        if (!isPlaying) return
+        segmentIndex++
+        if (segmentIndex < segments.size) {
+            playSegment()
+        } else {
+            onSentenceDone()
+        }
     }
 
     private fun onSentenceDone() {
