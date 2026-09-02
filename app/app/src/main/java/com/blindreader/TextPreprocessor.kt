@@ -22,6 +22,44 @@ object TextPreprocessor {
         return paragraphs.joinToString("\n\n")
     }
 
+    /**
+     * Oczyszcza teksty stron PDF, wykrywając i usuwając nagłówki/stopki.
+     * Linia powtarzająca się na górze lub dole wielu stron to header/footer.
+     */
+    fun processPages(pageTexts: List<String>): List<String> {
+        if (pageTexts.size < 3) {
+            return pageTexts.map { process(it) }
+        }
+
+        val headerLines = mutableSetOf<String>()
+        val footerLines = mutableSetOf<String>()
+        val headerCount = HashMap<String, Int>()
+        val footerCount = HashMap<String, Int>()
+
+        for (pageText in pageTexts) {
+            val lines = pageText.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+            if (lines.isEmpty()) continue
+            // Górne 3 linie = potencjalny header, dolne 3 = potencjalny footer.
+            val top = lines.take(3)
+            val bottom = lines.takeLast(3)
+            for (line in top) headerCount[line] = (headerCount[line] ?: 0) + 1
+            for (line in bottom) footerCount[line] = (footerCount[line] ?: 0) + 1
+        }
+
+        val threshold = (pageTexts.size * 0.6).toInt().coerceAtLeast(2)
+        for ((line, count) in headerCount) if (count >= threshold) headerLines.add(line)
+        for ((line, count) in footerCount) if (count >= threshold) footerLines.add(line)
+
+        return pageTexts.map { pageText ->
+            val lines = pageText.split("\n")
+            val filtered = lines.filter { line ->
+                val t = line.trim()
+                t.isNotEmpty() && t !in headerLines && t !in footerLines
+            }
+            process(filtered.joinToString("\n"))
+        }
+    }
+
     private fun removeRepeatedLines(text: String): String {
         val lines = text.split("\n")
         val counts = HashMap<String, Int>()

@@ -90,6 +90,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
     private lateinit var tts: TextToSpeech
     private var ttsReady = false
     private var sentences: List<String> = emptyList()
+    private var pageOfSentence: List<Int> = emptyList()
     private var currentIndex = 0
     private var isPlaying = false
     private var speed = 1.0f
@@ -235,8 +236,9 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         loadedUri = currentUri
         Thread {
             try {
-                val text = DocumentParser.parse(this, uri)
-                sentences = splitSentences(TextPreprocessor.process(text))
+                val parsed = DocumentParser.parseDocument(this, uri)
+                sentences = parsed.sentences
+                pageOfSentence = parsed.pageOfSentence
                 currentIndex = prefs.getInt(KEY_PREFIX + currentUri, 0).coerceIn(0, sentences.size - 1)
                 runOnMain { if (isPlaying) playCurrent() }
             } catch (e: Throwable) {
@@ -255,8 +257,24 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
 
     private fun nextPage() {
         if (sentences.isEmpty()) return
-        currentIndex = (currentIndex + PAGE_SIZE).coerceAtMost(sentences.size - 1)
-        playCurrent()
+        val currentPage = pageOfSentence.getOrElse(currentIndex) { currentIndex / PAGE_SIZE + 1 }
+        val targetPage = currentPage + 1
+        val next = sentences.indices.firstOrNull { pageOfSentence.getOrElse(it) { currentIndex / PAGE_SIZE + 1 } >= targetPage }
+        if (next != null) {
+            currentIndex = next
+        } else {
+            currentIndex = sentences.size - 1
+        }
+        playPage()
+    }
+
+    private fun playPage() {
+        if (!ttsReady) return
+        val page = pageOfSentence.getOrElse(currentIndex) { currentIndex / PAGE_SIZE + 1 }
+        isPlaying = true
+        tts.speak("Strona $page", TextToSpeech.QUEUE_ADD, null, "page")
+        tts.speak(sentences[currentIndex], TextToSpeech.QUEUE_ADD, null, "sentence")
+        updateNotification()
     }
 
     private fun nextVoice() {
@@ -335,13 +353,6 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
     private fun savePosition() {
         val uri = currentUri ?: return
         prefs.edit().putInt(KEY_PREFIX + uri, currentIndex).apply()
-    }
-
-    private fun splitSentences(text: String): List<String> {
-        return text
-            .split(Regex("(?<=[.!?…])\\s+"))
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
     }
 
     private fun changeSpeed(delta: Float) {

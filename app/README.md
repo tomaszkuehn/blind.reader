@@ -17,9 +17,14 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
   `PDFBoxResourceLoader.init(context)` przed pierwszym użyciem (ładowanie
   zasobów, np. glyphlist) — zrobione w `DocumentParser.initPdfbox()`.
 - **Preprocessing tekstu** — usuwa nagłówki, stopki, numery stron i zbędne
-  białe znaki.
+  białe znaki. Dla PDF headery/footery wykrywane są per strona: linia
+  powtarzająca się na górze lub dole ≥60% stron jest uznawana za nagłówek/
+  stopkę i pomijana.
 - **Lektor (TTS)** — odtwarzanie, pauza, start od początku, poprzednie /
   następne zdanie, następna strona, prędkość, głośność.
+- **Numery stron zgodne z PDF** — PDF parsowany jest strona po stronie, więc
+  po przeskoczeniu do następnej strony lektor odtwarza prawdziwy numer strony
+  z dokumentu, a czytanie zaczyna się od początku kolejnej strony.
 - **Wybór polskiego lektora** — przełącza tylko między głosami polskimi
   (jeśli dostępne).
 - **Zapamiętywanie pozycji** — dla każdego pliku zapamiętywana jest pozycja
