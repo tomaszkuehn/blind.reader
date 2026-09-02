@@ -1,15 +1,29 @@
 package com.blindreader
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.blindreader.databinding.ActivityMainBinding
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
+    private var isSelectingFile = false
+    private var files: List<File> = emptyList()
+    private var currentFileIndex = 0
+
+    private val supportedExtensions = setOf("pdf", "txt", "epub")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +47,7 @@ class MainActivity : AppCompatActivity() {
         binding.btnVoice.setOnClickListener { confirmCommand("voice", getString(R.string.voice)) }
 
         ReaderService.onOpenFile = {
-            pickFile()
+            enterFileSelection()
         }
     }
 
@@ -49,7 +63,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun executeDirect(command: String) {
         when (command) {
-            "open" -> pickFile()
+            "open" -> enterFileSelection()
             "play" -> { /* serwis nieaktywny — brak pliku do odtworzenia */ }
             "pause" -> ReaderService.pause(this)
             "restart" -> ReaderService.restart(this)
@@ -64,13 +78,109 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun pickFile() {
-        startActivity(Intent(this, FilePickerActivity::class.java))
+    private fun hasAllFilesAccess(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestAllFilesAccess() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+            intent.data = Uri.parse("package:$packageName")
+            startActivity(intent)
+        } else {
+            requestPermissions(arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), 1)
+        }
+    }
+
+    private fun enterFileSelection() {
+        if (!hasAllFilesAccess()) {
+            requestAllFilesAccess()
+            return
+        }
+        loadFiles()
+        isSelectingFile = true
+        updateButtonStates()
+        if (files.isEmpty()) {
+            binding.txtStatus.text = "Brak plików w Documents/Reader"
+            Toast.makeText(this, "Brak plików w Documents/Reader", Toast.LENGTH_SHORT).show()
+        } else {
+            announceCurrentFile()
+        }
+    }
+
+    private fun loadFiles() {
+        val dir = File(Environment.getExternalStorageDirectory(), "Documents/Reader")
+        files = if (dir.exists()) {
+            dir.listFiles()
+                ?.filter { it.isFile && it.extension.lowercase() in supportedExtensions }
+                ?.sortedBy { it.name.lowercase() }
+                ?: emptyList()
+        } else {
+            emptyList()
+        }
+        currentFileIndex = 0
+    }
+
+    private fun announceCurrentFile() {
+        if (files.isEmpty()) return
+        val name = files[currentFileIndex].nameWithoutExtension
+        binding.txtStatus.text = "${currentFileIndex + 1}/${files.size}: $name"
+        ReaderService.instance?.speakText(name)
+    }
+
+    private fun nextFile() {
+        if (files.isEmpty()) return
+        currentFileIndex = (currentFileIndex + 1) % files.size
+        announceCurrentFile()
+    }
+
+    private fun prevFile() {
+        if (files.isEmpty()) return
+        currentFileIndex = (currentFileIndex - 1 + files.size) % files.size
+        announceCurrentFile()
+    }
+
+    private fun playSelectedFile() {
+        if (files.isEmpty()) return
+        val file = files[currentFileIndex]
+        ReaderService.instance?.playFile(Uri.fromFile(file))
+        isSelectingFile = false
+        updateButtonStates()
+    }
+
+    private fun updateButtonStates() {
+        binding.btnOpenFile.isEnabled = !isSelectingFile
+        binding.btnPause.isEnabled = !isSelectingFile
+        binding.btnRestart.isEnabled = !isSelectingFile
+        binding.btnNextPage.isEnabled = !isSelectingFile
+        binding.btnSpeedDown.isEnabled = !isSelectingFile
+        binding.btnSpeedUp.isEnabled = !isSelectingFile
+        binding.btnVolDown.isEnabled = !isSelectingFile
+        binding.btnVolUp.isEnabled = !isSelectingFile
+        binding.btnVoice.isEnabled = !isSelectingFile
+        // W trybie wyboru aktywne: prev, next, play
+        binding.btnPrev.isEnabled = true
+        binding.btnNext.isEnabled = true
+        binding.btnPlay.isEnabled = true
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         val service = ReaderService.instance
         if (service != null) {
+            if (isSelectingFile) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { nextFile(); return true }
+                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> { prevFile(); return true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { playSelectedFile(); return true }
+                    KeyEvent.KEYCODE_BACK -> { isSelectingFile = false; updateButtonStates(); return true }
+                }
+                return true
+            }
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_UP -> { service.handleCommand("prev", "Poprzednie zdanie"); return true }
                 KeyEvent.KEYCODE_DPAD_DOWN -> { service.handleCommand("next", "Następne zdanie"); return true }

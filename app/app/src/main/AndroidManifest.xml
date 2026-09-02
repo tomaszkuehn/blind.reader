@@ -26,11 +26,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".FilePickerActivity"
-            android:exported="false"
-            android:windowSoftInputMode="stateAlwaysHidden" />
-
         <service
             android:name=".ReaderService"
             android:exported="false"

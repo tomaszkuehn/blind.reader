@@ -8,9 +8,11 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
 ## Funkcje
 
 - **Wybór pliku** — aplikacja czyta z folderu `Documents/Reader` na
-  urządzeniu. Klawiszami strzałek przechodzi się między dostępnymi tytułami
-  (PDF, TXT, EPUB), lektor odczytuje nazwę pliku, a Enter/Odtwarzaj wczytuje
-  i odtwarza wybrany plik. Wymaga uprawnienia "All files access"
+  urządzeniu. Po wybraniu "Otwórz plik" główny ekran przechodzi w tryb wyboru:
+  klawiszami strzałek przechodzi się między dostępnymi tytułami (PDF, TXT,
+  EPUB), lektor odczytuje nazwę pliku, a Enter/Odtwarzaj wczytuje i odtwarza
+  wybrany plik. W trybie wyboru aktywne są tylko: poprzednie zdanie, następne
+  zdanie i odtwarzaj. Wymaga uprawnienia "All files access"
   (MANAGE_EXTERNAL_STORAGE). PDFBox wymaga inicjalizacji
   `PDFBoxResourceLoader.init(context)` przed pierwszym użyciem (ładowanie
   zasobów, np. glyphlist) — zrobione w `DocumentParser.initPdfbox()`.
@@ -50,8 +52,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`
 ```
 app/
 ├── app/src/main/java/com/blindreader/
-│   ├── MainActivity.kt      # UI, przyciski, obsługa klawiatury
-│   ├── FilePickerActivity.kt # wybór pliku z Documents/Reader
+│   ├── MainActivity.kt      # UI, przyciski, obsługa klawiatury, wybór pliku
 │   ├── ReaderService.kt     # TTS, odtwarzanie, komendy, pozycje, bateria
 │   ├── DocumentParser.kt    # PDF / TXT / EPUB
 │   └── TextPreprocessor.kt  # usuwanie nagłówków, stron itp.
@@ -70,11 +71,14 @@ app/
 | Głośność − / + | Zmniejsz / zwiększ głośność |
 | V | Zmień lektora |
 
-### Wybór pliku (FilePickerActivity)
+### Wybór pliku (tryb na głównym ekranie)
+
+Po wybraniu "Otwórz plik" główny ekran przechodzi w tryb wyboru pliku.
+Aktywne są tylko: poprzednie zdanie, następne zdanie i odtwarzaj.
 
 | Klawisz | Funkcja |
 |---|---|
 | Strzałka w dół / PageDown | Następny plik |
 | Strzałka w górę / PageUp | Poprzedni plik |
 | Enter / D-pad center | Wczytaj i odtwarzaj wybrany plik |
-| Wstecz | Powrót do głównego okna |
+| Wstecz | Wyjście z trybu wyboru |
