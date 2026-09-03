@@ -26,6 +26,11 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
   (zaczynające się od numeru + 2+ spacji) są pomijane.
 - **Lektor (TTS)** — odtwarzanie, pauza, start od początku, poprzednie /
   następne zdanie, następna strona, prędkość, głośność.
+- **EPUB** — pliki `.epub` (archiwum ZIP) czytane są w kolejności `spine`
+  z `content.opf`, nie w kolejności ZIP. Pomijane są strony nieliterackie:
+  okładka, strona tytułowa, spis treści, strony redakcyjne/colophon
+  oraz pliki z treścią < 20 znaków. Parsowanie odporne na kolejność
+  atrybutów (`id`/`href`/`idref`) w pliku OPF.
 - **Naturalne czytanie** — po dwukropku, średniku i myślniku lektor robi
   krótką pauzę (120 ms), po przecinku krótszą (60 ms); tekst w nawiasach
   czyta szybciej, z pauzami przed i po nawiasie. Pauzy to prawdziwe pauzy

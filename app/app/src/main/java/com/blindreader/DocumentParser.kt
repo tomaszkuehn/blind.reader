@@ -85,21 +85,87 @@ object DocumentParser {
     }
 
     private fun parseEpub(stream: InputStream): ParsedDocument {
-        val zip = java.util.zip.ZipInputStream(stream)
-        val sb = StringBuilder()
-        var entry = zip.nextEntry
-        while (entry != null) {
-            val name = entry.name.lowercase()
-            if (!entry.isDirectory && (name.endsWith(".xhtml") || name.endsWith(".html") || name.endsWith(".htm"))) {
-                val content = zip.bufferedReader(Charsets.UTF_8).use { it.readText() }
-                sb.append(stripHtml(content)).append("\n\n")
+        // Wczytaj cały archiwum do pamięci (path -> treść), potem czytaj pliki
+        // w kolejności "spine" z content.opf (a nie w kolejności ZIP), pomijając
+        // strony nieliterackie (okładka, strona tytułowa, spis treści, redakcyjna).
+        val entries = LinkedHashMap<String, String>()
+        var contentOpf: String? = null
+        java.util.zip.ZipInputStream(stream).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (!entry.isDirectory) {
+                    val name = entry.name.lowercase()
+                    val content = readEntry(zip)
+                    if (name.endsWith("content.opf")) contentOpf = content
+                    if (name.endsWith(".xhtml") || name.endsWith(".html") || name.endsWith(".htm")) {
+                        entries[name.substringAfterLast('/')] = content
+                    }
+                }
+                zip.closeEntry()
+                entry = zip.nextEntry
             }
-            zip.closeEntry()
-            entry = zip.nextEntry
         }
-        zip.close()
+
+        val order = spineOrder(contentOpf)
+
+        val sb = StringBuilder()
+        for (name in order) {
+            val content = entries[name] ?: continue
+            val plain = stripHtml(content).trim()
+            if (plain.length < 20) continue
+            if (isNonContentPage(name)) continue
+            sb.append(plain).append("\n\n")
+        }
+
         val sentences = splitSentences(TextPreprocessor.process(sb.toString()))
         return ParsedDocument(sentences, List(sentences.size) { 1 })
+    }
+
+    /** Zwraca nazwy plików HTML w kolejności spine z content.opf. */
+    private fun spineOrder(contentOpf: String?): List<String> {
+        if (contentOpf == null) return emptyList()
+        val hrefById = HashMap<String, String>()
+        // Odporny na kolejność atrybutów: wyciągnij id i href osobno z każdego <item>.
+        for (m in Regex("<item\\b[^>]*/?>").findAll(contentOpf)) {
+            val tag = m.value
+            val id = attr(tag, "id") ?: continue
+            val href = attr(tag, "href") ?: continue
+            hrefById[id] = href
+        }
+        val order = mutableListOf<String>()
+        for (m in Regex("<itemref\\b[^>]*/?>").findAll(contentOpf)) {
+            val id = attr(m.value, "idref") ?: continue
+            val href = hrefById[id] ?: continue
+            order.add(href.substringAfterLast('/').lowercase())
+        }
+        return order
+    }
+
+    /** Wyciąga wartość atrybutu z tagu HTML (odporne na kolejność i cudzysłowy). */
+    private fun attr(tag: String, name: String): String? {
+        val m = Regex("\\b$name\\s*=\\s*[\"']([^\"']*)[\"']").find(tag) ?: return null
+        return m.groupValues[1]
+    }
+
+    /** Strony nieliterackie pomijane przy czytaniu. */
+    private fun isNonContentPage(name: String): Boolean {
+        val lower = name.lowercase()
+        if (lower.contains("cover") || lower.contains("toc") || lower.contains("redakcy") ||
+            lower.contains("colophon") || lower.contains("copyright") || lower.startsWith("index") ||
+            lower.contains("title")) {
+            return true
+        }
+        return false
+    }
+
+    private fun readEntry(zip: java.util.zip.ZipInputStream): String {
+        val baos = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(8192)
+        var n: Int
+        while (zip.read(buf).also { n = it } != -1) {
+            baos.write(buf, 0, n)
+        }
+        return baos.toString(Charsets.UTF_8.name())
     }
 
     private fun stripHtml(html: String): String {

@@ -258,6 +258,17 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
     }
 
     private fun loadDocument(uri: Uri, announce: Boolean = false) {
+        // Najpierw zapisz pozycję obecnie czytanego dokumentu i zatrzymaj go,
+        // żeby nie nadpisał pozycji nowego dokumentu (stary dokument mógłby
+        // wciąż odtwarzać i zapisywać swoją pozycję pod kluczem nowego URJu).
+        val oldUri = currentUri
+        if (oldUri != null && oldUri != uri.toString()) {
+            savePosition()
+            isPlaying = false
+            playEpoch++
+            cancelPause()
+            tts.stop()
+        }
         currentUri = uri.toString()
         loadedUri = currentUri
         currentDocumentName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: uri.lastPathSegment
