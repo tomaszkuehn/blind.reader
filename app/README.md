@@ -18,25 +18,32 @@ i odtwarza go głosem. Sterowana przyciskami ekranowymi oraz klawiaturą
   zasobów, np. glyphlist) — zrobione w `DocumentParser.initPdfbox()`.
 - **Preprocessing tekstu** — usuwa nagłówki, stopki, numery stron i zbędne
   białe znaki. Dla PDF headery/footery wykrywane są per strona: linia
-  powtarzająca się na górze lub dole ≥60% stron jest uznawana za nagłówek/
-  stopkę i pomijana. Usuwane są też odnośniki do przypisów (superscript)
-  zaraz po słowie, np. `słowo1`, `słowo[2]`, `słowo*` — to nie część słowa,
-  tylko odnośnik.
+  powtarzająca się na górze lub dole ~4% stron jest uznawana za nagłówek/
+  stopkę i pomijana (nagłówki rozdziałów obejmują tylko strony swojego
+  rozdziału). Usuwane są też odnośniki do przypisów (superscript) zaraz po
+  słowie lub nawiasie, np. `słowo1`, `słowo[2]`, `słowo*`, `(1939–1945)2` —
+  to nie część słowa, tylko odnośnik. Akapity przypisów na dole strony
+  (zaczynające się od numeru + 2+ spacji) są pomijane.
 - **Lektor (TTS)** — odtwarzanie, pauza, start od początku, poprzednie /
   następne zdanie, następna strona, prędkość, głośność.
-- **Naturalne czytanie** — po dwukropku lektor robi krótką pauzę; tekst
-  w nawiasach czyta szybciej, z pauzami przed i po nawiasie. Pauzy to
-  prawdziwe pauzy czasowe (bez wymawiania znaków), a szybsze czytanie
-  realizowane jest przez podział zdania na segmenty z różną prędkością —
-  bez tagów SSML, które niektóre silniki TTS czytałyby dosłownie.
+- **Naturalne czytanie** — po dwukropku, średniku i myślniku lektor robi
+  krótką pauzę (120 ms), po przecinku krótszą (60 ms); tekst w nawiasach
+  czyta szybciej, z pauzami przed i po nawiasie. Pauzy to prawdziwe pauzy
+  czasowe (bez wymawiania znaków), a szybsze czytanie realizowane jest przez
+  podział zdania na segmenty z różną prędkością — bez tagów SSML, które
+  niektóre silniki TTS czytałyby dosłownie.
 - **Numery stron zgodne z PDF** — PDF parsowany jest strona po stronie, więc
   po przeskoczeniu do następnej strony lektor odtwarza prawdziwy numer strony
   z dokumentu, a czytanie zaczyna się od początku kolejnej strony.
 - **Wybór polskiego lektora** — przełącza tylko między głosami polskimi
-  (jeśli dostępne).
+  (jeśli dostępne). Ostatnio używany lektor jest zapamiętywany i przywracany
+  przy starcie.
 - **Zapamiętywanie pozycji** — dla każdego pliku zapamiętywana jest pozycja
   w tekście; wznowienie następuje od początku zdania, w którym przerwano.
-  "Start od początku" resetuje punkt wznowienia.
+  "Start od początku" resetuje punkt wznowienia. Przy starcie aplikacja
+  automatycznie wczytuje ostatnio otwarty dokument, przywraca lektora i
+  prędkość, ustawia się na zapamiętanej pozycji i odtwarza komunikat
+  "Wczytano <nazwa>. Czytnik gotowy" (bez automatycznego czytania).
 - **Sterowanie bez wzroku** — każde naciśnięcie przycisku wstrzymuje czytanie,
   odtwarza słowny opis funkcji; ponowne naciśnięcie tego samego przycisku
   w ciągu 5 s wykonuje funkcję. Po 5 s bezczynności wraca do czytania.

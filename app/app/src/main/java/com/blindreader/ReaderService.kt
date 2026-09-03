@@ -52,6 +52,9 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         private const val EXTRA_COMMAND = "command"
         private const val PREFS_NAME = "reader_positions"
         private const val KEY_PREFIX = "pos_"
+        private const val KEY_LAST_URI = "last_uri"
+        private const val KEY_VOICE_INDEX = "voice_index"
+        private const val KEY_SPEED = "speed"
 
         private const val MIN_SPEED = 0.5f
         private const val MAX_SPEED = 2.0f
@@ -62,6 +65,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         var instance: ReaderService? = null
         var onOpenFile: (() -> Unit)? = null
         var onFileCommand: ((String) -> Unit)? = null
+        var onDocumentLoaded: (() -> Unit)? = null
 
         fun play(context: Context, uri: Uri) {
             val i = Intent(context, ReaderService::class.java).setAction(ACTION_PLAY)
@@ -115,6 +119,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
     }
     private var currentUri: String? = null
     private var loadedUri: String? = null
+    var currentDocumentName: String? = null
 
     private val prefs: SharedPreferences by lazy {
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -204,11 +209,18 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 tts.setLanguage(Locale.US)
             }
-            tts.setSpeechRate(speed)
             voices = tts.voices?.toList() ?: emptyList()
             polishVoices = voices.filter { v ->
                 v.locale.language.equals("pl", true) ||
                     v.locale.language.equals("pol", true)
+            }
+            // Przywróć prędkość.
+            speed = prefs.getFloat(KEY_SPEED, 1.0f).coerceIn(MIN_SPEED, MAX_SPEED)
+            tts.setSpeechRate(speed)
+            // Przywróć ostatnio używanego lektora (tylko po polskich głosach).
+            if (polishVoices.isNotEmpty()) {
+                voiceIndex = prefs.getInt(KEY_VOICE_INDEX, 0).coerceIn(0, polishVoices.size - 1)
+                tts.voice = polishVoices[voiceIndex]
             }
             tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {}
@@ -224,6 +236,20 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
             })
             ttsReady = true
             if (isPlaying) playCurrent()
+            // Przy starcie wczytaj ostatnio otwarty dokument i zatrzymaj się
+            // na zapamiętanej pozycji (czytanie bez odtwarzania).
+            restoreLastDocument()
+        }
+    }
+
+    private fun restoreLastDocument() {
+        val last = prefs.getString(KEY_LAST_URI, null) ?: return
+        if (sentences.isNotEmpty()) return
+        try {
+            val uri = Uri.parse(last)
+            loadDocument(uri, announce = true)
+        } catch (e: Throwable) {
+            Log.e(TAG, "Błąd przywracania dokumentu", e)
         }
     }
 
@@ -231,16 +257,22 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         android.os.Handler(mainLooper).post(block)
     }
 
-    private fun loadDocument(uri: Uri) {
+    private fun loadDocument(uri: Uri, announce: Boolean = false) {
         currentUri = uri.toString()
         loadedUri = currentUri
+        currentDocumentName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: uri.lastPathSegment
+        prefs.edit().putString(KEY_LAST_URI, currentUri).apply()
         Thread {
             try {
                 val parsed = DocumentParser.parseDocument(this, uri)
                 sentences = parsed.sentences
                 pageOfSentence = parsed.pageOfSentence
                 currentIndex = prefs.getInt(KEY_PREFIX + currentUri, 0).coerceIn(0, sentences.size - 1)
-                runOnMain { if (isPlaying) playCurrent() }
+                runOnMain {
+                    onDocumentLoaded?.invoke()
+                    if (announce) speak("Wczytano $currentDocumentName. Czytnik gotowy")
+                    if (isPlaying) playCurrent()
+                }
             } catch (e: Throwable) {
                 Log.e(TAG, "Błąd wczytywania dokumentu", e)
                 runOnMain { speak("Nie udało się wczytać dokumentu") }
@@ -250,6 +282,8 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
 
     private fun restart() {
         if (sentences.isEmpty()) return
+        playEpoch++
+        cancelPause()
         currentIndex = 0
         savePosition()
         playCurrent()
@@ -272,6 +306,8 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         if (!ttsReady) return
         val page = pageOfSentence.getOrElse(currentIndex) { currentIndex / PAGE_SIZE + 1 }
         isPlaying = true
+        playEpoch++
+        cancelPause()
         segments = mutableListOf(Segment("Strona $page", 1.0f)) + splitSegments(sentences[currentIndex])
         segmentIndex = 0
         playSegment()
@@ -285,6 +321,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         }
         voiceIndex = (voiceIndex + 1) % polishVoices.size
         tts.voice = polishVoices[voiceIndex]
+        prefs.edit().putInt(KEY_VOICE_INDEX, voiceIndex).apply()
         val name = polishVoices[voiceIndex].name.substringAfterLast('-').replace('_', ' ')
         speak("Lektor: $name")
     }
@@ -297,6 +334,8 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
             return
         }
         isPlaying = true
+        playEpoch++
+        cancelPause()
         segments = splitSegments(sentences[currentIndex])
         segmentIndex = 0
         playSegment()
@@ -307,25 +346,33 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
 
     private var segments: List<Segment> = emptyList()
     private var segmentIndex = 0
+    private var pauseRunnable: Runnable? = null
+    private var spokenEpoch = 0
+    // Token generacji: unieważnia zaległe, asynchroniczne callbacki (onDone,
+    // opóźnione pauzy) po restarcie/pauzie, żeby nie przesuwały czytania.
+    private var playEpoch = 0
 
     /**
-     * Dzieli zdanie na segmenty:
-     * - tekst w nawiasach czyta szybciej, z pauzami przed i po,
-     * - po dwukropku dodaje krótką pauzę.
-     * Pauzy to segmenty bez tekstu (text == null) odtwarzane z opóźnieniem.
+     * Dzieli zdanie na segmenty tylko w miejscach, gdzie potrzebna jest inna
+     * prędkość czytania (nawiasy). Przecinki, dwukropki i kropki pozostają
+     * w tekście — TTS sam robi przy nich naturalną pauzę i zachowuje właściwą
+     * intonację (podział na osobne wypowiedzi powodował opadającą intonację
+     * końca zdania przed przecinkiem).
      */
     private fun splitSegments(text: String): List<Segment> {
         val result = mutableListOf<Segment>()
         val normal = 1.0f
         val fast = 1.3f
         val pause = Segment(null, normal, 120L)
+        val commaPause = Segment(null, normal, 60L)
 
         var i = 0
         val n = text.length
         val sb = StringBuilder()
+        fun clean(s: String) = s.replace(".", "").replace(",", "")
         fun flush() {
             if (sb.isNotEmpty()) {
-                result.add(Segment(sb.toString(), normal))
+                result.add(Segment(clean(sb.toString()), normal))
                 sb.clear()
             }
         }
@@ -340,18 +387,30 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
                     sb.append(text.substring(i))
                     break
                 }
-                result.add(Segment(text.substring(i + 1, close), fast))
+                result.add(Segment(clean(text.substring(i + 1, close)), fast))
                 result.add(pause)
                 i = close + 1
             } else if (c == ':' && (i + 1 >= n || text[i + 1].isWhitespace())) {
-                sb.append(c)
+                // Po dwukropku krótka pauza.
+                flush()
+                result.add(pause)
+                i++
+            } else if (c == ';' && i + 1 < n && text[i + 1].isWhitespace()) {
+                // Po średniku krótka pauza.
+                flush()
+                result.add(pause)
+                i++
+            } else if ((c == '\u2014' || c == '\u2013') &&
+                (i + 1 >= n || text[i + 1].isWhitespace()) &&
+                (i == 0 || text[i - 1].isWhitespace())) {
+                // Po myślniku (em/en dash otoczony spacjami) krótka pauza.
                 flush()
                 result.add(pause)
                 i++
             } else if (c == ',' && i + 1 < n && text[i + 1].isWhitespace()) {
-                sb.append(c)
+                // Po przecinku krótka pauza (skrócona o 50%).
                 flush()
-                result.add(pause)
+                result.add(commaPause)
                 i++
             } else {
                 sb.append(c)
@@ -371,15 +430,25 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
         if (seg.text == null) {
             // Pauza czasowa — bez wymawiania.
             segmentIndex++
-            confirmHandler.postDelayed({ if (isPlaying) playSegment() }, seg.pauseMs)
+            cancelPause()
+            val epoch = playEpoch
+            val r = Runnable { if (isPlaying && playEpoch == epoch) playSegment() }
+            pauseRunnable = r
+            confirmHandler.postDelayed(r, seg.pauseMs)
             return
         }
+        spokenEpoch = playEpoch
         tts.setSpeechRate(speed * seg.rate)
         tts.speak(seg.text, TextToSpeech.QUEUE_FLUSH, null, "segment")
     }
 
+    private fun cancelPause() {
+        pauseRunnable?.let { confirmHandler.removeCallbacks(it) }
+        pauseRunnable = null
+    }
+
     private fun onSegmentDone() {
-        if (!isPlaying) return
+        if (!isPlaying || playEpoch != spokenEpoch) return
         segmentIndex++
         if (segmentIndex < segments.size) {
             playSegment()
@@ -412,6 +481,8 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
     private fun pause() {
         if (isPlaying) {
             isPlaying = false
+            playEpoch++
+            cancelPause()
             tts.stop()
             savePosition()
             updateNotification()
@@ -445,6 +516,7 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
     private fun changeSpeed(delta: Float) {
         speed = (speed + delta).coerceIn(MIN_SPEED, MAX_SPEED)
         tts.setSpeechRate(speed)
+        prefs.edit().putFloat(KEY_SPEED, speed).apply()
         speak("Prędkość ${String.format(Locale.US, "%.1f", speed)}")
     }
 
@@ -484,8 +556,12 @@ class ReaderService : Service(), TextToSpeech.OnInitListener {
                     loadDocument(Uri.parse(uri))
                 } else if (isPlaying) {
                     restart()
-                } else {
+                } else if (sentences.isNotEmpty()) {
                     resume()
+                } else if (uri != null) {
+                    // Dokument jeszcze się wczytuje — odtworzymy po zakończeniu.
+                    isPlaying = true
+                    loadDocument(Uri.parse(uri))
                 }
             }
             "pause" -> pause()

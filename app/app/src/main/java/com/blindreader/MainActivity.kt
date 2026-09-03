@@ -65,6 +65,20 @@ class MainActivity : AppCompatActivity() {
                 "file_play" -> playSelectedFile()
             }
         }
+        ReaderService.onDocumentLoaded = {
+            updateStatusText()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStatusText()
+    }
+
+    private fun updateStatusText() {
+        if (isSelectingFile) return
+        val name = ReaderService.instance?.currentDocumentName
+        binding.txtStatus.text = name ?: getString(R.string.no_file)
     }
 
     private fun confirmCommand(command: String, description: String) {

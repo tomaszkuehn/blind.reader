@@ -34,3 +34,7 @@ Thumbs.db
 # IJFW tooling state
 .ijfw/
 ijfw/
+
+# Test documents
+przyklad.pdf
+*.pdf
